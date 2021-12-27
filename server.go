@@ -33,6 +33,8 @@ type SequenceDiagramRequest struct {
 	Message string `json:"message"`
 	Style   string `json:"style"`
 	Format  string `json:"format"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
 }
 
 type SequenceDiagramResponse struct {
@@ -46,13 +48,28 @@ func (s SequenceDiagramResponse) ImageUrl() string {
 
 func main() {
 
-	http.HandleFunc("/", handlerGenerateSequence)
+	http.HandleFunc("/download", handlerDownload)
+	http.HandleFunc("/health", handlerHealthcheck)
 
+	log.Println("Starting server in port: 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-
 }
 
-func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
+func handlerHealthcheck(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Header().Add("Content-Type", "application/json")
+		fmt.Fprint(w, `{"error": "method not allowed"}`)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+	fmt.Fprint(w, `{"live": "ok"}`)
+}
+
+func handlerDownload(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -64,11 +81,15 @@ func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
 	requestBody, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Add("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"error": "%s"}`, err.Error())
 		return
 	}
+
+	defer r.Body.Close()
+
+	log.Printf("Request body: %s \n", string(requestBody))
 
 	var sequenceDiagramRequest SequenceDiagramRequest
 
@@ -79,7 +100,7 @@ func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sequenceDiagramResponse, err := getSequenceDiagramResponse(sequenceDiagramRequest)
+	sequenceDiagramResponse, err := getSequenceDiagram(sequenceDiagramRequest)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -88,7 +109,7 @@ func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imgFile, err := downloadImageUrl(sequenceDiagramResponse.ImageUrl(), sequenceDiagramRequest.Format)
+	imgFile, err := downloadImage(sequenceDiagramResponse.ImageUrl(), sequenceDiagramRequest.Format)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -97,7 +118,10 @@ func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer imgFile.Close()
+	defer func() {
+		imgFile.Close()
+		os.Remove(imgFile.Name())
+	}()
 
 	imgFileInfo, err := imgFile.Stat()
 
@@ -123,7 +147,7 @@ func handlerGenerateSequence(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, imgFile)
 }
 
-func downloadImageUrl(imgUrl, format string) (*os.File, error) {
+func downloadImage(imgUrl, format string) (*os.File, error) {
 
 	res, err := http.Get(imgUrl)
 
@@ -138,6 +162,8 @@ func downloadImageUrl(imgUrl, format string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Create file %s, and download image from %s \n", tempFile.Name(), imgUrl)
 
 	io.Copy(tempFile, res.Body)
 
@@ -156,30 +182,28 @@ func urlValuesFromDiagramSequenceRequest(sequenceDiagramReq SequenceDiagramReque
 	return data
 }
 
-func callSequenceDiagram(sequenceDiagramRequest SequenceDiagramRequest) (*http.Response, error) {
+func callWebSequenceDiagramAPI(sequenceDiagramRequest SequenceDiagramRequest) (*http.Response, error) {
 
 	data := urlValuesFromDiagramSequenceRequest(sequenceDiagramRequest)
 
-	req, err := http.PostForm(fmt.Sprintf("%s/index.php", BaseUrl), data)
+	res, err := http.PostForm(fmt.Sprintf("%s/index.php", BaseUrl), data)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return req, nil
+	return res, nil
 }
 
-func getSequenceDiagramResponse(sequenceDiagramRequest SequenceDiagramRequest) (*SequenceDiagramResponse, error) {
+func getSequenceDiagram(sequenceDiagramRequest SequenceDiagramRequest) (*SequenceDiagramResponse, error) {
 
-	res, err := callSequenceDiagram(sequenceDiagramRequest)
+	res, err := callWebSequenceDiagramAPI(sequenceDiagramRequest)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer func() {
-		res.Body.Close()
-	}()
+	defer res.Body.Close()
 
 	bytesResponse, err := ioutil.ReadAll(res.Body)
 
@@ -187,7 +211,9 @@ func getSequenceDiagramResponse(sequenceDiagramRequest SequenceDiagramRequest) (
 		return nil, err
 	}
 
-	sequenceDiagramaResponse := SequenceDiagramResponse{}
+	log.Printf("Response from websequencediagrams %s \n", string(bytesResponse))
+
+	var sequenceDiagramaResponse SequenceDiagramResponse
 
 	if err := json.Unmarshal(bytesResponse, &sequenceDiagramaResponse); err != nil {
 		return nil, err
