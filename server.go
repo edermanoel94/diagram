@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -48,35 +51,27 @@ func (s SequenceDiagramResponse) ImageUrl() string {
 
 func main() {
 
-	http.HandleFunc("/download", handlerDownload)
-	http.HandleFunc("/health", handlerHealthcheck)
+	router := mux.NewRouter()
 
-	log.Println("Starting server in port: 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
+	router.HandleFunc("/download", handlerDownload).Methods(http.MethodPost)
+	router.HandleFunc("/health", handlerHealthCheck).Methods(http.MethodGet)
 
-func handlerHealthcheck(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Header().Add("Content-Type", "application/json")
-		fmt.Fprint(w, `{"error": "method not allowed"}`)
-		return
+	svr := &http.Server{
+		Handler:      router,
+		Addr:         ":8080",
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
 	}
 
-	w.WriteHeader(http.StatusOK)
+	log.Fatal(svr.ListenAndServe())
+}
+
+func handlerHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, `{"live": "ok"}`)
 }
 
 func handlerDownload(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Header().Add("Content-Type", "application/json")
-		fmt.Fprint(w, `{"error": "method not allowed"}`)
-		return
-	}
 
 	requestBody, err := ioutil.ReadAll(r.Body)
 
@@ -163,7 +158,7 @@ func downloadImage(imgUrl, format string) (*os.File, error) {
 		return nil, err
 	}
 
-	log.Printf("Create file %s, and download image from %s \n", tempFile.Name(), imgUrl)
+	log.Printf("Create temporary file in %s\n", imgUrl)
 
 	io.Copy(tempFile, res.Body)
 
@@ -211,13 +206,13 @@ func getSequenceDiagram(sequenceDiagramRequest SequenceDiagramRequest) (*Sequenc
 		return nil, err
 	}
 
-	log.Printf("Response from websequencediagrams %s \n", string(bytesResponse))
-
 	var sequenceDiagramaResponse SequenceDiagramResponse
 
 	if err := json.Unmarshal(bytesResponse, &sequenceDiagramaResponse); err != nil {
 		return nil, err
 	}
+
+	log.Printf("Response with image partial url: %s \n", sequenceDiagramaResponse.Img)
 
 	return &sequenceDiagramaResponse, nil
 }
