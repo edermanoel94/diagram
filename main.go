@@ -10,12 +10,20 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"html/template"
 )
+
+var tmpl *template.Template
+
+func init() {
+	tmpl = template.Must(template.ParseFiles("/app/index.html"))
+}
 
 func main() {
 
 	router := mux.NewRouter()
 
+	router.HandleFunc("/", handlerHome).Methods(http.MethodGet)
 	router.HandleFunc("/download", handlerDownload).Methods(http.MethodPost)
 	router.HandleFunc("/health", handlerHealthCheck).Methods(http.MethodGet)
 
@@ -32,6 +40,16 @@ func main() {
 func handlerHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, `{"live": "ok"}`)
+}
+
+func handlerHome(w http.ResponseWriter, r *http.Request) {
+	err := tmpl.Execute(w, nil)
+
+	if err != nil {
+		log.Printf("cannot parse html page: %s \n", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handlerDownload(w http.ResponseWriter, r *http.Request) {

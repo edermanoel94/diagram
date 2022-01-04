@@ -8,6 +8,8 @@ services:
       - web
     ports:
       - "8080:8080"
+    volumes:
+      - "./index.html:/app/index.html"
     labels:
       - traefik.http.routers.diagram.rule=Host(`diagram.edermanoel.net.br`)
       - traefik.http.routers.diagram.tls=true
