@@ -26,4 +26,9 @@ Bob->Alice: Authentication Response
 
 How to pass the message in ```Request Body```:
 
-```..."message": ["title Untitled", "Alice->Bob: Authentication Request", "note right of Bob: Bob thinks about it", ["Bob->Alice: Authentication Response"]
+```
+{
+"message": ["title Untitled", "Alice->Bob: Authentication Request", "note right of Bob: Bob thinks about it", ["Bob->Alice: Authentication Response"],
+...
+}
+```
