@@ -13,3 +13,13 @@ Golang 1.17+
 | GET                    | `https://diagram.edermanoel.net.br/health`   |                                x                                    |
 | POST                   | `https://diagram.edermanoel.net.br/download` | `{"format": "png,pdf,svg", "message": "<DSL>", "style": "default"}` |
 
+
+Example for message DSL:
+
+```
+title Untitled
+
+Alice->Bob: Authentication Request
+note right of Bob: Bob thinks about it
+Bob->Alice: Authentication Response
+```
