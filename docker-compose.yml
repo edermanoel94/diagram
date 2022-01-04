@@ -1,0 +1,19 @@
+version: "3.3"
+
+services:
+  diagram:
+    container_name: diagram_container
+    build: .
+    networks:
+      - web
+    ports:
+      - "8080:8080"
+    labels:
+      - traefik.http.routers.diagram.rule=Host(`diagram.edermanoel.net.br`)
+      - traefik.http.routers.diagram.tls=true
+      - traefik.http.routers.diagram.tls.certresolver=lets-encrypt
+      - traefik.port=8080
+
+networks:
+  web:
+    external: true

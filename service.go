@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 const (
@@ -16,11 +17,11 @@ const (
 )
 
 type SequenceDiagramRequest struct {
-	Message string `json:"message"`
-	Style   string `json:"style"`
-	Format  string `json:"format"`
-	Width   int    `json:"width"`
-	Height  int    `json:"height"`
+	Message []string `json:"message"`
+	Style   string   `json:"style"`
+	Format  string   `json:"format"`
+	Width   int      `json:"width"`
+	Height  int      `json:"height"`
 }
 
 type SequenceDiagramResponse struct {
@@ -59,8 +60,10 @@ func urlValuesFromDiagramSequenceRequest(sequenceDiagramReq SequenceDiagramReque
 
 	data := url.Values{}
 
+	message := strings.Join(sequenceDiagramReq.Message, "\n")
+
 	data.Set("apiVersion", "1")
-	data.Set("message", sequenceDiagramReq.Message)
+	data.Set("message", message)
 	data.Set("style", sequenceDiagramReq.Style)
 	data.Set("format", sequenceDiagramReq.Format)
 

@@ -1,4 +1,4 @@
-module github.com/edermanoel94/gen-sequence-diagram
+module github.com/edermanoel94/diagram
 
 go 1.17
 

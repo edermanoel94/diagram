@@ -11,8 +11,8 @@ RUN go mod download
 COPY *.go ./
 
 # Build
-RUN go build -o /gen-sequence-diagram
+RUN go build -o /diagram
 
 EXPOSE 8080
 
-CMD [ "/gen-sequence-diagram" ]
+CMD [ "/diagram" ]
